@@ -18,13 +18,16 @@ async def handshake(reader, writer):
     # Waiting for OK from server
     data_encoded = await reader.read(1024)
     decoded_data = json.loads(data_encoded.decode())
+    print("Data recieved from server: <{}>".format(data_encoded.decode()))
 
     try:
         # Server response is OK
         if decoded_data["response"] == "OK":
+            print("OK from server: <{}>".format(data_encoded.decode()))
             return True
         else:
             print("Server KO: <{}>".format(decoded_data["infos"]))
+            return False
     except KeyError:
         print("Invalid response: <{}>".format(data_encoded.decode()))
         return False
@@ -63,6 +66,8 @@ async def request_client_list(reader, writer):
     try:
         # Server response is OK
         if decoded_data["response"] == "OK":
+            print("OK from server for client list: <{}>".format(
+                decoded_data["infos"]["client_list"]))
             # "infos" : {"client_list": [[address, ip], [address, ip], ...]}
             return decoded_data["infos"]["client_list"]
         else:
@@ -136,26 +141,38 @@ async def send_message_to_client(client_addr, client_port):
     writer.close()
 
 
-async def message_clients(client_list):
-    msg_coros = [send_message_to_client(addr, p) for addr, p in client_list]
-    await asyncio.gather(*msg_coros)
+async def message_clients(client_list, self_ip, self_port):
+    # filter out ourself from the list
+    valid_client_list = [
+        item for item in client_list if item[0] != self_ip or item[1] != self_port]
+
+    print(valid_client_list)
+
+    msg_coros = [send_message_to_client(addr, p)
+                 for addr, p in valid_client_list]
+
+    if len(valid_client_list) > 0:
+        await asyncio.gather(*msg_coros)
 
 
-async def fetch_client_and_send_messages(server_ip, server_port, time_between_messages):
+async def fetch_client_and_send_messages(server_ip, server_port, time_between_messages, self_ip, self_port):
+    client_list = []
 
     while True:
-        # Open connection with server
-        reader, writer = await asyncio.open_connection(server_ip, server_port)
-        # Fetch client list
-        client_list = await request_client_list(reader, writer)
-        # terminate communication with server
-        writer.close()
+        try:
+            # Open connection with server
+            reader, writer = await asyncio.open_connection(server_ip, server_port)
+            # Fetch client list
+            client_list = await request_client_list(reader, writer)
+            # terminate communication with server
+            writer.close()
+        except ConnectionRefusedError:
+            print("Warning: server is offline!")
 
         # start messaging other clients
-        await message_clients(client_list)
-
+        await message_clients(client_list, self_ip, self_port)
         # Wait before sending next messages
-        await asyncio.sleep(1)
+        await asyncio.sleep(time_between_messages)
 
 
 async def main(server_ip, server_port, self_ip, self_port, max_retry_count, time_between_retry, time_between_messages):
@@ -170,7 +187,7 @@ async def main(server_ip, server_port, self_ip, self_port, max_retry_count, time
 
     if ret:
         # Launch messaging routine
-        await fetch_client_and_send_messages(server_ip, server_port, time_between_messages)
+        await fetch_client_and_send_messages(server_ip, server_port, time_between_messages, self_ip, self_port)
 
     await task_local_server
 
