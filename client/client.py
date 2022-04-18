@@ -120,25 +120,28 @@ async def start_local_server(self_ip, self_port):
 
 
 async def send_message_to_client(client_addr, client_port):
-    reader, writer = await asyncio.open_connection(client_addr, client_port)
-    message = {"request": "message", "infos": {"message": "Hello You!"}}
-    writer.write(json.dumps(message).encode())
-    await writer.drain()
-
-    data_encoded = await reader.read(1024)
-    decoded_data = json.loads(data_encoded.decode())
-    addr = writer.get_extra_info('peername')
     try:
-        # Server response is OK
-        if decoded_data["response"] == "OK":
-            print("Message successfully sent to <{}>".format(addr))
-        else:
-            print("Response to message is KO: <{}>".format(
-                decoded_data["infos"]))
-    except KeyError:
-        print("Invalid response: <{}>".format(data_encoded.decode()))
+        reader, writer = await asyncio.open_connection(client_addr, client_port)
+        message = {"request": "message", "infos": {"message": "Hello You!"}}
+        writer.write(json.dumps(message).encode())
+        await writer.drain()
 
-    writer.close()
+        data_encoded = await reader.read(1024)
+        decoded_data = json.loads(data_encoded.decode())
+        addr = writer.get_extra_info('peername')
+        try:
+            # Server response is OK
+            if decoded_data["response"] == "OK":
+                print("Message successfully sent to <{}>".format(addr))
+            else:
+                print("Response to message is KO: <{}>".format(
+                    decoded_data["infos"]))
+        except KeyError:
+            print("Invalid response: <{}>".format(data_encoded.decode()))
+
+        writer.close()
+    except ConnectionRefusedError:
+        print("Could not connect to <{}:{}>!".format(client_addr, client_port))
 
 
 async def message_clients(client_list, self_ip, self_port):
@@ -146,7 +149,8 @@ async def message_clients(client_list, self_ip, self_port):
     valid_client_list = [
         item for item in client_list if item[0] != self_ip or item[1] != self_port]
 
-    print(valid_client_list)
+    # Debug
+    # print(valid_client_list)
 
     msg_coros = [send_message_to_client(addr, p)
                  for addr, p in valid_client_list]
