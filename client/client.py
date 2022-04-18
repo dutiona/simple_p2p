@@ -35,20 +35,22 @@ async def handshake(reader, writer):
 
 # Try to do the handshake multiple time
 async def do_handshake(server_ip, server_port, max_retry_count, time_between_retry):
-    reader, writer = await asyncio.open_connection(server_ip, server_port)
-    ret = await handshake(reader, writer)
-    try_count = 1
-    while not ret and try_count < max_retry_count:
-        print("Could not contact server...")
-        await asyncio.sleep(time_between_retry)
-        print("Retrying...")
-        ret = await handshake()
-        try_count += 1
+    try:
+        reader, writer = await asyncio.open_connection(server_ip, server_port)
+        ret = await handshake(reader, writer)
+        try_count = 1
+        while not ret and try_count < max_retry_count:
+            print("Could not contact server...")
+            await asyncio.sleep(time_between_retry)
+            print("Retrying...")
+            ret = await handshake()
+            try_count += 1
 
-    # terminate communication with server
-    writer.close()
-
-    return ret
+        # terminate communication with server
+        writer.close()
+        return ret
+    except ConnectionRefusedError:
+        return False
 
 
 # Request the client list from the server
@@ -141,7 +143,8 @@ async def send_message_to_client(client_addr, client_port):
 
         writer.close()
     except ConnectionRefusedError:
-        print("Could not connect to <{}:{}>!".format(client_addr, client_port))
+        print("Warning: could not connect to <{}:{}>!".format(
+            client_addr, client_port))
 
 
 async def message_clients(client_list, self_ip, self_port):
