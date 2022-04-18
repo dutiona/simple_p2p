@@ -13,6 +13,7 @@ async def handshake(reader, writer):
     message = {"request": "handshake", "infos": {
         "ip": self_ip, "port": self_port}}
     writer.write(json.dumps(message).encode())
+    await writer.drain()
 
     # Waiting for OK from server
     data_encoded = await reader.read(1024)
@@ -30,15 +31,19 @@ async def handshake(reader, writer):
 
 
 # Try to do the handshake multiple time
-async def do_handshake(reader, writer, max_retry_count, time_between_retry):
+async def do_handshake(server_ip, server_port, max_retry_count, time_between_retry):
+    reader, writer = await asyncio.open_connection(server_ip, server_port)
     ret = await handshake(reader, writer)
     try_count = 1
     while not ret and try_count < max_retry_count:
         print("Could not contact server...")
-        await asyncio.sleep(1)
+        await asyncio.sleep(time_between_retry)
         print("Retrying...")
         ret = await handshake()
         try_count += 1
+
+    # terminate communication with server
+    writer.close()
 
     return ret
 
@@ -48,7 +53,8 @@ async def request_client_list(reader, writer):
 
     # request client list
     message = {"request": "client_list"}
-    writer.writer(json.dumps(message).encode())
+    writer.write(json.dumps(message).encode())
+    await writer.drain()
 
     # Waiting for response from server
     data_encoded = await reader.read(1024)
@@ -63,7 +69,7 @@ async def request_client_list(reader, writer):
             print("Server KO: <{}>".format(decoded_data["infos"]))
     except KeyError:
         print("Invalid response: <{}>".format(data_encoded.decode()))
-        return False
+        return []
 
 
 # Handle received messages from peers
@@ -111,7 +117,8 @@ async def start_local_server(self_ip, self_port):
 async def send_message_to_client(client_addr, client_port):
     reader, writer = await asyncio.open_connection(client_addr, client_port)
     message = {"request": "message", "infos": {"message": "Hello You!"}}
-    writer.writer(json.dumps(message).encode())
+    writer.write(json.dumps(message).encode())
+    await writer.drain()
 
     data_encoded = await reader.read(1024)
     decoded_data = json.loads(data_encoded.decode())
@@ -127,7 +134,6 @@ async def send_message_to_client(client_addr, client_port):
         print("Invalid response: <{}>".format(data_encoded.decode()))
 
     writer.close()
-    reader.close()
 
 
 async def message_clients(client_list):
@@ -141,10 +147,9 @@ async def fetch_client_and_send_messages(server_ip, server_port, time_between_me
         # Open connection with server
         reader, writer = await asyncio.open_connection(server_ip, server_port)
         # Fetch client list
-        client_list = request_client_list(reader, writer)
+        client_list = await request_client_list(reader, writer)
         # terminate communication with server
         writer.close()
-        reader.close()
 
         # start messaging other clients
         await message_clients(client_list)
@@ -157,22 +162,17 @@ async def main(server_ip, server_port, self_ip, self_port, max_retry_count, time
     print("Starting P2P client at <{}:{}>".format(self_ip, self_port))
 
     # Start a local server to receive messages from other clients
-    await start_local_server(self_ip, self_port)
-
-    # Open connection with server
-    reader, writer = await asyncio.open_connection(server_ip, server_port)
+    task_local_server = asyncio.create_task(
+        start_local_server(self_ip, self_port))
 
     # Handshake
-    ret = await do_handshake(reader, writer, max_retry_count, time_between_retry)
-
-    # terminate communication with server
-    writer.close()
-    reader.close()
+    ret = await do_handshake(server_ip, server_port, max_retry_count, time_between_retry)
 
     if ret:
         # Launch messaging routine
         await fetch_client_and_send_messages(server_ip, server_port, time_between_messages)
 
+    await task_local_server
 
 if __name__ == "__main__":
     server_ip = '127.0.0.1'
@@ -186,8 +186,9 @@ if __name__ == "__main__":
     time_between_retry = 3  # second
     time_between_messages = 10  # second
 
-    self_port = int(
-        input("Listening on port (default is {}):".format(self_port)))
+    input_port = input("Listening on port (default is {}):".format(self_port))
+    if not len(input_port) == 0:
+        self_port = int(input_port)
 
     # Start server
     asyncio.run(main(server_ip, server_port, self_ip,
