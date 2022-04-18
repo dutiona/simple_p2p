@@ -159,7 +159,7 @@ async def message_clients(client_list, self_ip, self_port):
         await asyncio.gather(*msg_coros)
 
 
-async def fetch_client_and_send_messages(server_ip, server_port, time_between_messages, self_ip, self_port):
+async def fetch_client_and_send_messages(server_ip, server_port, time_between_messages, self_ip, self_port, max_retry_count, time_between_retry):
     client_list = []
 
     while True:
@@ -177,6 +177,8 @@ async def fetch_client_and_send_messages(server_ip, server_port, time_between_me
         await message_clients(client_list, self_ip, self_port)
         # Wait before sending next messages
         await asyncio.sleep(time_between_messages)
+        # Redo a handshake in case server went offline and has its client_list empty
+        await do_handshake(server_ip, server_port, max_retry_count, time_between_retry)
 
 
 async def main(server_ip, server_port, self_ip, self_port, max_retry_count, time_between_retry, time_between_messages):
@@ -186,12 +188,12 @@ async def main(server_ip, server_port, self_ip, self_port, max_retry_count, time
     task_local_server = asyncio.create_task(
         start_local_server(self_ip, self_port))
 
-    # Handshake
+    # initial handshake
     ret = await do_handshake(server_ip, server_port, max_retry_count, time_between_retry)
 
     if ret:
         # Launch messaging routine
-        await fetch_client_and_send_messages(server_ip, server_port, time_between_messages, self_ip, self_port)
+        await fetch_client_and_send_messages(server_ip, server_port, time_between_messages, self_ip, self_port, max_retry_count, time_between_retry)
 
     await task_local_server
 
