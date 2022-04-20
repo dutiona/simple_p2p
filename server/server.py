@@ -54,7 +54,6 @@ async def handle_client(reader, writer):
             print("Invalid client: <{}>".format(decoded_data["infos"]))
     except KeyError:
         print("Invalid request: <{}>".format(data_encoded.decode()))
-        return False
 
     writer.close()
 
@@ -87,7 +86,7 @@ async def do_one_ping(key, addr, port):
             del client_list[key]
         else:
             print("OK!")
-    except:
+    except ConnectionRefusedError:
         print("KO!")
         del client_list[key]
 
