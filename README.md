@@ -38,4 +38,5 @@ Some resilience is implemented:
 * The server should provide checksum to clients to verify the integrity of messages received.
 * Refactoring is much needed
 * Decorelate the requesting the client list and messaging routine that are currently in the same loop
+* Maybe support having several server providing client list (communicating together for merging/regenerating if one went offline?)
 * Other stuff... This is really a simple program
