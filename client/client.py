@@ -163,6 +163,7 @@ async def message_clients(client_list, self_ip, self_port):
 
 
 async def fetch_client_and_send_messages(server_ip, server_port, time_between_messages, self_ip, self_port, max_retry_count, time_between_retry):
+    is_server_online = True  # we enter this routine online if server is online at launch
     client_list = []
 
     while True:
@@ -174,6 +175,7 @@ async def fetch_client_and_send_messages(server_ip, server_port, time_between_me
             # terminate communication with server
             writer.close()
         except ConnectionRefusedError:
+            is_server_online = False
             print("Warning: server is offline!")
 
         # start messaging other clients
@@ -181,7 +183,8 @@ async def fetch_client_and_send_messages(server_ip, server_port, time_between_me
         # Wait before sending next messages
         await asyncio.sleep(time_between_messages)
         # Redo a handshake in case server went offline and has its client_list empty
-        await do_handshake(server_ip, server_port, max_retry_count, time_between_retry)
+        if not is_server_online:
+            is_server_online = await do_handshake(server_ip, server_port, max_retry_count, time_between_retry)
 
 
 async def main(server_ip, server_port, self_ip, self_port, max_retry_count, time_between_retry, time_between_messages):

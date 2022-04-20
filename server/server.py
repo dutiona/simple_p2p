@@ -88,6 +88,7 @@ async def do_one_ping(key, addr, port):
         else:
             print("OK!")
     except:
+        print("KO!")
         del client_list[key]
 
 
@@ -112,6 +113,7 @@ async def main(server_ip, server_port, time_between_pings):
     # Start ping routine
     print("Starting ping routines...")
     task_pings = asyncio.create_task(do_pings(time_between_pings))
+
     await task_server
     await task_pings
 
