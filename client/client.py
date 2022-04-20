@@ -56,7 +56,7 @@ async def do_handshake(server_ip, server_port, try_count, max_retry_count, time_
         # Retrying
         await asyncio.sleep(time_between_retry)
         print("Retrying...")
-        return do_handshake(server_ip, server_port, try_count + 1, max_retry_count, time_between_retry)
+        return await do_handshake(server_ip, server_port, try_count + 1, max_retry_count, time_between_retry)
 
 
 # Request the client list from the server
