@@ -35,21 +35,25 @@ async def handshake(reader, writer):
 
 # Try to do the handshake multiple time
 async def do_handshake(server_ip, server_port, try_count, max_retry_count, time_between_retry):
+    # Recursive stop condition
     if try_count == max_retry_count:
         return False
     else:
         try:
             reader, writer = await asyncio.open_connection(server_ip, server_port)
             ret = await handshake(reader, writer)
-            if not ret:
-                print("Could not do handshake with the server server...")
-            else:
-                # terminate communication with server
+            if ret:
+                # We're good, terminate communication with server and return
                 writer.close()
                 return ret
+            else:
+                # Not good, fallback on retry
+                print("Could not do handshake with the server...")
         except ConnectionRefusedError:
+            # Not good, fallback on retry
             print("Could not contact the server...")
 
+        # Retrying
         await asyncio.sleep(time_between_retry)
         print("Retrying...")
         return do_handshake(server_ip, server_port, try_count + 1, max_retry_count, time_between_retry)
@@ -186,7 +190,7 @@ async def fetch_client_and_send_messages(server_ip, server_port, time_between_me
         await asyncio.sleep(time_between_messages)
         # Redo a handshake in case server went offline and has its client_list empty
         if not is_server_online:
-            is_server_online = await do_handshake(server_ip, server_port, 1, max_retry_count, time_between_retry)
+            is_server_online = await do_handshake(server_ip, server_port, 0, max_retry_count, time_between_retry)
 
 
 async def main(server_ip, server_port, self_ip, self_port, max_retry_count, time_between_retry, time_between_messages):
@@ -197,7 +201,7 @@ async def main(server_ip, server_port, self_ip, self_port, max_retry_count, time
         start_local_server(self_ip, self_port))
 
     # initial handshake
-    ret = await do_handshake(server_ip, server_port, 1, max_retry_count, time_between_retry)
+    ret = await do_handshake(server_ip, server_port, 0, max_retry_count, time_between_retry)
 
     if ret:
         # Launch messaging routine
