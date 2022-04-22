@@ -47,12 +47,7 @@ async def schedule_coros_in_executor_pool(max_workers, *coros):
     executor_pool = concurrent.futures.ThreadPoolExecutor(
         max_workers=max_workers)
 
-    coro_buckets = []
-
-    if len(coros) <= max_workers:
-        coro_buckets = [[coro] for coro in coros]
-    else:
-        coro_buckets = np.array_split(coros, max_workers)
+    coro_buckets = np.array_split(coros, max_workers)
 
     main_loop = asyncio.get_running_loop()
     blocking_tasks = [
@@ -75,12 +70,7 @@ async def schedule_coros_dict_in_executor_pool(max_workers, **coros):
     executor_pool = concurrent.futures.ThreadPoolExecutor(
         max_workers=max_workers)
 
-    tagged_coro_buckets = []
-
-    if len(coros) <= max_workers:
-        tagged_coro_buckets = [(key, coro) for key, coro in coros.items()]
-    else:
-        tagged_coro_buckets = np.array_split(list(coros.items()), max_workers)
+    tagged_coro_buckets = np.array_split(list(coros.items()), max_workers)
 
     main_loop = asyncio.get_running_loop()
     blocking_tasks = [
