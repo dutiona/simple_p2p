@@ -6,14 +6,6 @@ from time import perf_counter
 import numpy as np
 
 
-async def print_wait_and_return_coro(x, w):
-    print("Executing in thread <{}> {} and waiting {}s...".format(
-        threading.get_ident(), x, w))
-    await asyncio.sleep(w)
-    print("resuming...")
-    return x
-
-
 async def spawn_task_and_run(loop, *coros):
     tasks = [
         loop.create_task(coro)
@@ -103,6 +95,14 @@ async def schedule_coros_dict_in_executor_pool(max_workers, **coros):
     result_flatten = list(itertools.chain(*results))
 
     return dict(result_flatten)  # convert list of tuple to dict
+
+
+async def print_wait_and_return_coro(x, w):
+    print("Executing in thread <{}> {} and waiting {}s...".format(
+        threading.get_ident(), x, w))
+    await asyncio.sleep(w)
+    print("resuming...")
+    return x
 
 
 async def main():
