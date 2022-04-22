@@ -28,13 +28,9 @@ async def tag_coro(tag, coro):
 
 
 async def spawn_tagged_task_and_run(loop, *coros_tagged):
-    decorated_coros = [
-        tag_coro(tag, coro)
-        for tag, coro in coros_tagged
-    ]
     tasks = [
-        loop.create_task(coro)
-        for coro in decorated_coros
+        loop.create_task(tag_coro(tag, coro))
+        for tag, coro in coros_tagged
     ]
     return await asyncio.gather(*tasks)
 
